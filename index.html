@@ -1,1 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>QMS - ED Hospital Kuala Nerang</title>
+    <style>
+        body { font-family: Arial, sans-serif; background: #f4f4f9; margin: 0; padding: 20px; text-align: center; }
+        .container { max-width: 500px; background: white; padding: 20px; border-radius: 8px; margin: 0 auto; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
+        h2 { color: #2c3e50; }
+        input, select, button { width: 90%; padding: 10px; margin: 10px 0; border-radius: 5px; border: 1px solid #ccc; font-size: 16px; }
+        button { background: #3498db; color: white; border: none; cursor: pointer; font-weight: bold; }
+        button:hover { background: #2980b9; }
+        .btn-warning { background: #e67e22; }
+        .btn-warning:hover { background: #d35400; }
+        #qms-section { display: none; }
+    </style>
+</head>
+<body>
 
+<div class="container" id="auth-section">
+    <h2>ED Hospital Kuala Nerang<br><small>Staff Login / Register</small></h2>
+    <input type="text" id="username" placeholder="Username" required>
+    <input type="password" id="password" placeholder="Password" required>
+    <button onclick="authenticate('login')">Log In</button>
+    <button onclick="authenticate('register')" style="background: #2ecc71;">Register</button>
+    <p id="auth-status" style="color: red;"></p>
+</div>
+
+<div class="container" id="qms-section">
+    <h2>Queue Management System<br><small>Hospital Kuala Nerang</small></h2>
+    
+    <label for="queueNumber"><strong>Queue Number:</strong></label>
+    <input type="text" id="queueNumber" placeholder="e.g. A102" required>
+    
+    <label for="roomSelect"><strong>Select Room:</strong></label>
+    <select id="roomSelect">
+        <option value="Bilik 1">Room 1 (Bilik 1)</option>
+        <option value="Bilik 2">Room 2 (Bilik 2)</option>
+        <option value="Bilik 3">Room 3 (Bilik 3)</option>
+        <option value="Bilik 4">Room 4 (Bilik 4)</option>
+        <option value="Bilik 5">Room 5 (Bilik 5)</option>
+    </select>
+    
+    <button onclick="callPatient()">Call Patient</button>
+    <button class="btn-warning" onclick="patientNotAround()">Call Not Around</button>
+    
+    <p id="action-status" style="color: green; font-weight: bold;"></p>
+</div>
+
+<script>
+    // REPLACE THIS WITH YOUR GOOGLE APPS SCRIPT WEB APP URL
+    const WEBHOOK_URL = 'https://script.google.com/macros/s/AKfycbxDg3sqjHumbg1HXDccKIkELXi2wnNeL6m5xzs1C8VRKd_VahmRwj3G-Pn0gBE-Zl-XQg/exec';
+
+    function sendToSheet(payload) {
+        document.getElementById('action-status').innerText = "Syncing with Google Sheets...";
+        fetch(WEBHOOK_URL, {
+            method: 'POST',
+            mode: 'no-cors', // Used to prevent CORS issues with Google Script
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        }).then(() => {
+            document.getElementById('action-status').innerText = "Data Recorded Successfully!";
+            setTimeout(() => document.getElementById('action-status').innerText = "", 3000);
+        }).catch(err => {
+            console.error(err);
+            document.getElementById('action-status').innerText = "Error syncing data.";
+        });
+    }
+
+    function authenticate(action) {
+        const user = document.getElementById('username').value;
+        const pass = document.getElementById('password').value;
+        if(!user || !pass) return alert("Enter username and password!");
+
+        document.getElementById('auth-status').innerText = "Processing...";
+        sendToSheet({ action: action, username: user, password: pass });
+        
+        setTimeout(() => {
+            document.getElementById('auth-section').style.display = 'none';
+            document.getElementById('qms-section').style.display = 'block';
+        }, 1000);
+    }
+
+    function callPatient() {
+        const queueNumber = document.getElementById('queueNumber').value;
+        const room = document.getElementById('roomSelect').value;
+        if(!queueNumber) return alert("Please enter a queue number!");
+
+        // Send to Google Sheet
+        sendToSheet({ action: 'call', queueNumber: queueNumber, room: room });
+
+        // Sync with monitor.html via localStorage
+        // Added Date.now() so consecutive identical calls still trigger the storage event
+        const syncData = Date.now() + '|' + queueNumber + '|' + room;
+        localStorage.setItem('qms_trigger', syncData);
+    }
+
+    function patientNotAround() {
+        const queueNumber = document.getElementById('queueNumber').value;
+        if(!queueNumber) return alert("Please enter a queue number first!");
+
+        // Send to Google Sheet
+        sendToSheet({ action: 'not_around', queueNumber: queueNumber });
+    }
+</script>
+
+</body>
+</html>
