@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>QMS Monitor - Hospital Kuala Nerang</title>
+    <style>
+        body { 
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+            background: #111; 
+            color: white; 
+            margin: 0; 
+            display: flex; 
+            flex-direction: column;
+            align-items: center; 
+            justify-content: center; 
+            height: 100vh;
+            transition: background-color 0.3s;
+        }
+        .header {
+            position: absolute;
+            top: 20px;
+            font-size: 2vw;
+            color: #ccc;
+            text-align: center;
+        }
+        .queue-box {
+            background: #222;
+            padding: 50px 100px;
+            border-radius: 20px;
+            text-align: center;
+            border: 5px solid #444;
+            box-shadow: 0 0 30px rgba(0,0,0,0.8);
+        }
+        .label { font-size: 3vw; color: #888; text-transform: uppercase; }
+        .number { font-size: 15vw; font-weight: bold; color: #f1c40f; margin: 20px 0; line-height: 1; }
+        .room { font-size: 6vw; color: #3498db; font-weight: bold; }
+        
+        /* Flashing Animation */
+        .flash-green { animation: flash 1s infinite; background-color: #27ae60 !important; }
+        
+        @keyframes flash {
+            0% { background-color: #27ae60; }
+            50% { background-color: #111; }
+            100% { background-color: #27ae60; }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="header">
+        <h1>JABATAN KECEMASAN HOSPITAL KUALA NERANG</h1>
+    </div>
+
+    <div class="queue-box">
+        <div class="label">Nombor Giliran</div>
+        <div class="number" id="display-number">----</div>
+        <div class="room" id="display-room">Menunggu...</div>
+    </div>
+
+<script>
+    // Audio Context for Beep Sound
+    function playBeep() {
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        const oscillator = audioCtx.createOscillator();
+        const gainNode = audioCtx.createGain();
+
+        oscillator.type = 'square';
+        oscillator.frequency.setValueAtTime(600, audioCtx.currentTime); // 600Hz frequency
+        
+        gainNode.gain.setValueAtTime(0.1, audioCtx.currentTime); // Volume
+        
+        oscillator.connect(gainNode);
+        gainNode.connect(audioCtx.destination);
+        
+        oscillator.start();
+        setTimeout(() => oscillator.stop(), 500); // Beep for 0.5s
+    }
+
+    // Text to Speech (Malay)
+    function speakMalay(queueNumber, room) {
+        // Break string apart to spell character by character for better numbers pronunciation
+        const spelledQueue = queueNumber.split('').join(' '); 
+        const announcement = `Nombor giliran, ${spelledQueue}, sila masuk ke ${room}`;
+        
+        const utterance = new SpeechSynthesisUtterance(announcement);
+        utterance.lang = 'ms-MY';
+        utterance.rate = 0.85; // slightly slower for clarity
+        window.speechSynthesis.speak(utterance);
+    }
+
+    // Flash Green background for 5 seconds
+    function flashScreen() {
+        document.body.classList.add('flash-green');
+        setTimeout(() => {
+            document.body.classList.remove('flash-green');
+        }, 5000);
+    }
+
+    function triggerCall(queueNumber, room) {
+        // 1. Update UI
+        document.getElementById('display-number').innerText = queueNumber;
+        document.getElementById('display-room').innerText = room;
+
+        // 2. Play Beep
+        playBeep();
+
+        // 3. Flash Green
+        flashScreen();
+
+        // 4. Speak in Malay (Delay slightly so beep finishes)
+        setTimeout(() => {
+            speakMalay(queueNumber, room);
+        }, 600);
+    }
+
+    // Listen for storage events (Syncing from index.html)
+    window.addEventListener('storage', (event) => {
+        if (event.key === 'qms_trigger' && event.newValue) {
+            // Data format: timestamp|QueueNumber|Room
+            const dataParts = event.newValue.split('|');
+            if(dataParts.length === 3) {
+                const queueNumber = dataParts[1];
+                const room = dataParts[2];
+                triggerCall(queueNumber, room);
+            }
+        }
+    });
+
+    // Note: Most browsers require a user interaction before Audio/Speech is allowed.
+    // Click anywhere on the monitor screen once when you open it to enable sound.
+    window.addEventListener('click', () => {
+       console.log("Audio unlocked by user interaction."); 
+    }, {once:true});
+</script>
+
+</body>
+</html>
